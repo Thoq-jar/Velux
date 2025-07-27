@@ -22,9 +22,15 @@ Velux is a build system that leverages Apple's Pkl configuration language to pro
 
 ### Prerequisites
 
+<<<<<<< HEAD
 - Swift 6.1+ (for building Velux)
 - Clang compiler
 - [Pkl runtime](https://pkl-lang.org/main/current/pkl-cli/index.html)
+=======
+- Swift 6.2+ (for building Velux)
+- GCC or Clang compiler
+- Pkl runtime (installed automatically via pkl-swift)
+>>>>>>> 394bdcb0fae6ca94ea4af665629127fa124a73a9
 
 ### Installation
 
