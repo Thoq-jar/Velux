@@ -1,0 +1,104 @@
+amends "../pkl/WorkspaceConfig.pkl"
+
+local commonScripts = Map(
+  "clean", new Script {
+    name = "clean"
+    command = "rm -rf build/ dist/ *.tmp src/*/build tests/build"
+    description = "Clean all build artifacts"
+  },
+  "format", new Script {
+    name = "format"
+    command = "find src tests -name '*.c' -o -name '*.h' | xargs clang-format -i"
+    description = "Format all source code"
+  },
+  "test", new Script {
+    name = "test"
+    command = "DYLD_LIBRARY_PATH=../src/core/build/release ./build/debug/test_runner"
+    description = "Run all tests"
+    workingDir = "tests"
+    dependencies = List("build-tests")
+  },
+  "build", new Script {
+    name = "build"
+    command = "echo 'Building all projects...'"
+    description = "Build all targets"
+    dependencies = List("build-core", "build-app")
+  },
+  "build-core", new Script {
+    name = "build-core"
+    command = "mkdir -p build/release && gcc -fPIC -shared -std=c99 -Wall -Wextra *.c -o build/release/libcore.so"
+    description = "Build core library"
+    workingDir = "src/core"
+  },
+  "build-app", new Script {
+    name = "build-app"
+    command = "mkdir -p build/release && gcc -std=c99 -Wall -Wextra -I../core *.c -L../core/build/release -lcore -Wl,-rpath,../core/build/release -o build/release/velux-app"
+    description = "Build main application"
+    workingDir = "src/app"
+    dependencies = List("build-core")
+  },
+  "build-tests", new Script {
+    name = "build-tests"
+    command = "mkdir -p build/debug && gcc -std=c99 -Wall -Wextra -I../src/core *.c -L../src/core/build/release -lcore -Wl,-rpath,../src/core/build/release -o build/debug/test_runner"
+    description = "Build test suite"
+    workingDir = "tests"
+    dependencies = List("build-core")
+  },
+  "run", new Script {
+    name = "run"
+    command = "DYLD_LIBRARY_PATH=../core/build/release ./build/release/velux-app"
+    description = "Run the main application"
+    workingDir = "src/app"
+    dependencies = List("build-app")
+  },
+  "run-with-args", new Script {
+    name = "run-with-args"
+    command = "DYLD_LIBRARY_PATH=../core/build/release ./build/release/velux-app -d 'Custom input data'"
+    description = "Run application with debug mode and custom input"
+    workingDir = "src/app"
+    dependencies = List("build-app")
+  }
+)
+
+workspace = new Workspace {
+  name = "VeluxDemo"
+  version = "1.0.0"
+  scripts = commonScripts
+  projects = Map(
+    "core", new Project {
+      name = "core"
+      path = "src/core"
+      type = "library"
+      buildConfig = "core.pkl"
+    },
+    "app", new Project {
+      name = "app"
+      path = "src/app"
+      type = "executable"
+      dependencies = List("core")
+      buildConfig = "app.pkl"
+    },
+    "tests", new Project {
+      name = "tests"
+      path = "tests"
+      type = "test"
+      dependencies = List("core")
+      buildConfig = "tests.pkl"
+    }
+  )
+  environments = Map(
+    "dev", new Environment {
+      name = "dev"
+      variables = Map("LOG_LEVEL", "debug", "ENABLE_PROFILING", "true")
+      features = Set("debug-ui", "verbose-logging")
+    },
+    "prod", new Environment {
+      name = "prod"
+      variables = Map("LOG_LEVEL", "info", "OPTIMIZE", "true")
+    }
+  )
+  configFiles = Map(
+    "git", ".gitignore",
+    "editor", ".editorconfig"
+  )
+}

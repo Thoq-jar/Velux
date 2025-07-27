@@ -1,0 +1,14 @@
+amends "../../pkl/BuildConfig.pkl"
+
+builds = Map(
+  "core", new Build {
+    name = "core"
+    sources = Set("*.c")
+    language = new C {}
+    buildType = "release"
+    libraries = List()
+    includePaths = List(".")
+    extraFlags = List("-fPIC", "-shared")
+    output = "libcore.so"
+  }
+)
