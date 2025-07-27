@@ -50,28 +50,117 @@ struct BuildSystem {
     }
 
     func buildProject(
-        _ projectName: String, in workspace: WorkspaceData, buildConfig: BuildConfigData
+        _ projectName: String, in workspace: WorkspaceData, buildConfig: BuildConfigData,
+        strip: Bool = false, buildType: String
     ) async throws {
         guard let project = workspace.projects[projectName] else {
             throw BuildError.projectNotFound(projectName)
         }
 
         for dependency in project.dependencies {
-            try await buildProject(dependency, in: workspace, buildConfig: buildConfig)
+            try await buildProject(
+                dependency, in: workspace, buildConfig: buildConfig, strip: strip,
+                buildType: buildType)
         }
 
         if let buildConfigPath = project.buildConfig {
-            let fullPath = "\(project.path)/\(buildConfigPath)"
-            let projectBuildConfig = try await loadBuildConfig(from: fullPath)
+            if buildConfigPath.contains("*") {
+                let pklFiles = try expandGlob(buildConfigPath, in: ".")
+                pipelinePrint("Scanning project files...", category: "info", strip: strip)
+                var allBuilds: [(BuildData, String)] = []
 
-            for (_, build) in projectBuildConfig.builds {
-                try executeBuild(build, projectPath: project.path)
+                for pklFile in pklFiles {
+                    let fileName = (pklFile as NSString).lastPathComponent
+                    if pklFile.hasSuffix(".pkl") && fileName != "workspace.pkl"
+                        && fileName != "build.pkl"
+                    {
+                        pipelinePrint(
+                            "Processing \(Colors.cyan)\(pklFile)\(Colors.reset)",
+                            category: "processing", strip: strip)
+                        let projectBuildConfig = try await loadBuildConfig(from: pklFile)
+
+                        let projectDir = (pklFile as NSString).deletingLastPathComponent
+                        let actualProjectPath = projectDir.isEmpty ? "." : projectDir
+
+                        for (_, build) in projectBuildConfig.builds {
+                            allBuilds.append((build, actualProjectPath))
+                        }
+                    } else {
+                        if !strip {
+                            pipelinePrint("Skipping \(pklFile)", category: "info", strip: strip)
+                        }
+                    }
+                }
+
+                try buildInDependencyOrder(allBuilds, strip: strip, globalBuildType: buildType)
+            } else {
+                let fullPath = "\(project.path)/\(buildConfigPath)"
+                let projectBuildConfig = try await loadBuildConfig(from: fullPath)
+
+                for (_, build) in projectBuildConfig.builds {
+                    try executeBuild(
+                        build, projectPath: project.path, strip: strip, globalBuildType: buildType)
+                }
             }
         }
     }
 
-    private func executeBuild(_ build: BuildData, projectPath: String) throws {
-        let outputDir = "\(projectPath)/build/\(build.buildType)"
+    private func buildInDependencyOrder(
+        _ builds: [(BuildData, String)], strip: Bool = false, globalBuildType: String
+    ) throws {
+        var buildMap: [String: (BuildData, String)] = [:]
+        var builtTargets: Set<String> = []
+
+        for (build, path) in builds {
+            buildMap[build.name] = (build, path)
+            if !strip {
+                pipelinePrint(
+                    "Found target \(Colors.cyan)\(build.name)\(Colors.reset) \(Colors.yellow)(\(build.buildType))\(Colors.reset)",
+                    category: "info", strip: strip)
+            }
+        }
+
+        func buildTarget(_ targetName: String) throws {
+            if builtTargets.contains(targetName) {
+                return
+            }
+
+            guard let (build, path) = buildMap[targetName] else {
+                pipelinePrint(
+                    "Target '\(targetName)' not found in current build set", category: "warning",
+                    strip: strip)
+                return
+            }
+
+            for dependency in build.dependencies {
+                try buildTarget(dependency)
+            }
+
+            pipelinePrint(
+                "Building \(Colors.cyan)\(targetName)\(Colors.reset) \(Colors.yellow)(\(build.buildType))\(Colors.reset)",
+                category: "building", strip: strip)
+            try executeBuild(
+                build, projectPath: path, strip: strip, globalBuildType: globalBuildType)
+            builtTargets.insert(targetName)
+        }
+
+        let sortedBuilds = builds.sorted { (build1, build2) in
+            let priority1 = getBuildPriority(build1.0.buildType)
+            let priority2 = getBuildPriority(build2.0.buildType)
+            return priority1 < priority2
+        }
+
+        for (build, _) in sortedBuilds {
+            try buildTarget(build.name)
+        }
+    }
+
+    private func executeBuild(
+        _ build: BuildData, projectPath: String, strip: Bool = false, globalBuildType: String
+    ) throws {
+        let currentDir = FileManager.default.currentDirectoryPath
+        let outputSubdir = getOutputSubdirectory(for: build.buildType)
+        let outputDir = "\(currentDir)/velux-out/\(outputSubdir)"
 
         let createDirProcess = Process()
         createDirProcess.executableURL = URL(fileURLWithPath: "/bin/mkdir")
@@ -81,6 +170,7 @@ struct BuildSystem {
         createDirProcess.waitUntilExit()
 
         var compileCommand = ["gcc"]
+        compileCommand.append(contentsOf: getCompilerFlags(for: globalBuildType))
         compileCommand.append(contentsOf: build.extraFlags)
 
         for source in build.sources {
@@ -92,12 +182,33 @@ struct BuildSystem {
             compileCommand.append("-I\(includePath)")
         }
 
+        for dependency in build.dependencies {
+            let sharedLib = "\(currentDir)/velux-out/shared/lib\(dependency).so"
+            let staticLib = "\(currentDir)/velux-out/static/lib\(dependency).a"
+
+            if FileManager.default.fileExists(atPath: sharedLib) {
+                compileCommand.append("-L\(currentDir)/velux-out/shared")
+                compileCommand.append("-l\(dependency)")
+                compileCommand.append("-Wl,-rpath,\(currentDir)/velux-out/shared")
+            } else if FileManager.default.fileExists(atPath: staticLib) {
+                compileCommand.append("-L\(currentDir)/velux-out/static")
+                compileCommand.append("-l\(dependency)")
+            } else {
+                pipelinePrint(
+                    "Dependency '\(dependency)' not found in velux-out", category: "warning",
+                    strip: strip)
+            }
+        }
+
         for library in build.libraries {
             compileCommand.append("-l\(library)")
         }
 
+        let outputExtension = getOutputExtension(for: build.buildType)
+        let outputName = getOutputName(
+            build.name, buildType: build.buildType, extension: outputExtension)
         compileCommand.append("-o")
-        compileCommand.append("\(outputDir)/\(build.name)")
+        compileCommand.append("\(outputDir)/\(outputName)")
 
         let compileProcess = Process()
         compileProcess.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -122,11 +233,27 @@ struct BuildSystem {
     }
 
     private func expandGlob(_ pattern: String, in basePath: String) throws -> [String] {
-        let fullPattern = "\(basePath)/\(pattern)"
-
         let globProcess = Process()
-        globProcess.executableURL = URL(fileURLWithPath: "/bin/bash")
-        globProcess.arguments = ["-c", "echo \(fullPattern)"]
+
+        #if os(Windows)
+            globProcess.executableURL = URL(fileURLWithPath: "C:\\Windows\\System32\\cmd.exe")
+            globProcess.arguments = ["/c", "for /r \(basePath) %i in (\(pattern)) do @echo %i"]
+        #else
+            globProcess.executableURL = URL(fileURLWithPath: "/bin/bash")
+            if pattern.contains("**") {
+                let fileName = pattern.replacingOccurrences(of: "**/", with: "")
+                globProcess.arguments = ["-c", "find \(basePath) -name '\(fileName)' -type f"]
+            } else if pattern.contains("*") {
+                globProcess.arguments = [
+                    "-c",
+                    "cd \(basePath) && find . -path '\(pattern)' -type f 2>/dev/null | sed 's|^./||' || true",
+                ]
+            } else {
+                globProcess.arguments = [
+                    "-c", "find \(basePath) -path '\(basePath)/\(pattern)' -type f",
+                ]
+            }
+        #endif
 
         let pipe = Pipe()
         globProcess.standardOutput = pipe
@@ -139,9 +266,94 @@ struct BuildSystem {
             return []
         }
 
-        return output.trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: " ")
+        let expandedPaths = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: "\n")
             .filter { !$0.isEmpty }
+
+        return expandedPaths.map { path in
+            if path.hasPrefix(basePath + "/") {
+                return String(path.dropFirst(basePath.count + 1))
+            }
+            return path
+        }
+    }
+
+    private func getCompilerFlags(for buildType: String) -> [String] {
+        switch buildType.lowercased() {
+        case "debug":
+            return ["-g"]
+        case "release":
+            return ["-O2", "-DNDEBUG"]
+        case "test":
+            return ["-g", "-O0", "-ftest-coverage", "-fprofile-arcs"]
+        default:
+            return []
+        }
+    }
+
+    private func getOutputSubdirectory(for buildType: String) -> String {
+        switch buildType.lowercased() {
+        case "shared":
+            return "shared"
+        case "static":
+            return "static"
+        case "debug", "release", "test":
+            return "executable"
+        default:
+            return buildType
+        }
+    }
+
+    private func getOutputExtension(for buildType: String) -> String {
+        switch buildType.lowercased() {
+        case "shared":
+            #if os(macOS)
+                return ".dylib"
+            #elseif os(Windows)
+                return ".dll"
+            #else
+                return ".so"
+            #endif
+        case "static":
+            #if os(Windows)
+                return ".lib"
+            #else
+                return ".a"
+            #endif
+        case "debug", "release", "test":
+            #if os(Windows)
+                return ".exe"
+            #else
+                return ""
+            #endif
+        default:
+            return ""
+        }
+    }
+
+    private func getOutputName(_ name: String, buildType: String, extension ext: String) -> String {
+        switch buildType.lowercased() {
+        case "static", "shared":
+            if !name.hasPrefix("lib") {
+                return "lib\(name)\(ext)"
+            }
+            return "\(name)\(ext)"
+        default:
+            return "\(name)\(ext)"
+        }
+    }
+
+    private func getBuildPriority(_ buildType: String) -> Int {
+        switch buildType.lowercased() {
+        case "shared":
+            return 1
+        case "static":
+            return 2
+        case "debug", "release", "test":
+            return 3
+        default:
+            return 4
+        }
     }
 }
 

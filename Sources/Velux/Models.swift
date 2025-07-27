@@ -41,4 +41,5 @@ struct BuildData {
     let libraries: [String]
     let includePaths: [String]
     let extraFlags: [String]
+    let dependencies: [String]
 }

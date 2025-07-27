@@ -1,4 +1,4 @@
-amends "../../pkl/BuildConfig.pkl"
+amends "../../../pkl/BuildConfig.pkl"
 
 builds = Map(
   "app", new Build {
@@ -6,9 +6,9 @@ builds = Map(
     sources = Set("*.c")
     language = new C {}
     buildType = "release"
-    libraries = List("core")
+    dependencies = List("core")
     includePaths = List("../core")
-    extraFlags = List("-L../core/build/release")
+    extraFlags = List()
     output = "velux-app"
   }
 )

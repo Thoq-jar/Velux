@@ -3,7 +3,7 @@ amends "../pkl/WorkspaceConfig.pkl"
 local commonScripts = Map(
   "clean", new Script {
     name = "clean"
-    command = "rm -rf build/ dist/ *.tmp src/*/build tests/build"
+    command = "rm -rf build/ dist/ *.tmp src/*/build tests/build velux-out/"
     description = "Clean all build artifacts"
   },
   "format", new Script {
@@ -13,50 +13,15 @@ local commonScripts = Map(
   },
   "test", new Script {
     name = "test"
-    command = "DYLD_LIBRARY_PATH=../src/core/build/release ./build/debug/test_runner"
+    command = "DYLD_LIBRARY_PATH=../velux-out/shared ./velux-out/executable/test_runner"
     description = "Run all tests"
-    workingDir = "tests"
-    dependencies = List("build-tests")
-  },
-  "build", new Script {
-    name = "build"
-    command = "echo 'Building all projects...'"
-    description = "Build all targets"
-    dependencies = List("build-core", "build-app")
-  },
-  "build-core", new Script {
-    name = "build-core"
-    command = "mkdir -p build/release && gcc -fPIC -shared -std=c99 -Wall -Wextra *.c -o build/release/libcore.so"
-    description = "Build core library"
-    workingDir = "src/core"
-  },
-  "build-app", new Script {
-    name = "build-app"
-    command = "mkdir -p build/release && gcc -std=c99 -Wall -Wextra -I../core *.c -L../core/build/release -lcore -Wl,-rpath,../core/build/release -o build/release/velux-app"
-    description = "Build main application"
-    workingDir = "src/app"
-    dependencies = List("build-core")
-  },
-  "build-tests", new Script {
-    name = "build-tests"
-    command = "mkdir -p build/debug && gcc -std=c99 -Wall -Wextra -I../src/core *.c -L../src/core/build/release -lcore -Wl,-rpath,../src/core/build/release -o build/debug/test_runner"
-    description = "Build test suite"
-    workingDir = "tests"
-    dependencies = List("build-core")
+    workingDir = "."
   },
   "run", new Script {
     name = "run"
-    command = "DYLD_LIBRARY_PATH=../core/build/release ./build/release/velux-app"
+    command = "DYLD_LIBRARY_PATH=./velux-out/shared ./velux-out/executable/velux-app"
     description = "Run the main application"
-    workingDir = "src/app"
-    dependencies = List("build-app")
-  },
-  "run-with-args", new Script {
-    name = "run-with-args"
-    command = "DYLD_LIBRARY_PATH=../core/build/release ./build/release/velux-app -d 'Custom input data'"
-    description = "Run application with debug mode and custom input"
-    workingDir = "src/app"
-    dependencies = List("build-app")
+    workingDir = "."
   }
 )
 
@@ -65,6 +30,12 @@ workspace = new Workspace {
   version = "1.0.0"
   scripts = commonScripts
   projects = Map(
+    "build", new Project {
+      name = "build"
+      path = "."
+      type = "executable"
+      buildConfig = "**/*.pkl"
+    },
     "core", new Project {
       name = "core"
       path = "src/core"

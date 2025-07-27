@@ -45,6 +45,7 @@ struct PklBuild: Decodable {
     let libraries: [String]?
     let includePaths: [String]?
     let extraFlags: [String]?
+    let dependencies: [String]?
     let output: String?
 }
 
@@ -97,7 +98,8 @@ extension PklBuildConfigRoot {
                 buildType: build.buildType,
                 libraries: build.libraries ?? [],
                 includePaths: build.includePaths ?? [],
-                extraFlags: build.extraFlags ?? []
+                extraFlags: build.extraFlags ?? [],
+                dependencies: build.dependencies ?? []
             )
         }
 

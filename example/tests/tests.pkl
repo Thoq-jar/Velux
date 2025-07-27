@@ -1,4 +1,4 @@
-amends "../pkl/BuildConfig.pkl"
+amends "../../pkl/BuildConfig.pkl"
 
 builds = Map(
   "tests", new Build {
@@ -6,9 +6,9 @@ builds = Map(
     sources = Set("*.c")
     language = new C {}
     buildType = "debug"
-    libraries = List("core")
+    dependencies = List("core")
     includePaths = List("../src/core")
-    extraFlags = List("-L../src/core/build/release")
+    extraFlags = List()
     output = "test_runner"
   }
 )
