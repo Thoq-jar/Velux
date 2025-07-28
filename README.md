@@ -41,6 +41,10 @@ git clone https://github.com/your-username/Velux.git
 cd Velux
 swift build -c release
 ```
+Optional:
+```bash
+mv .build/release/Velux /usr/local/bin/velux
+```
 
 The built executable will be at `.build/release/Velux`.
 
