@@ -1,0 +1,15 @@
+amends "../../pkl/BuildConfig.pkl"
+
+builds = Map(
+  "main", new Build {
+    name = "main"
+    sources = Set("src/**/*.c")
+    language = new C {
+      buildType = "release"
+      libraries = List()
+      includePaths = List("src")
+      extraFlags = List()
+    }
+    output = "velux-demo"
+  }
+)

@@ -1,4 +1,4 @@
-amends "../pkl/WorkspaceConfig.pkl"
+amends "../../pkl/WorkspaceConfig.pkl"
 
 local commonScripts = Map(
   "clean", new Script {
@@ -68,8 +68,5 @@ workspace = new Workspace {
       variables = Map("LOG_LEVEL", "info", "OPTIMIZE", "true")
     }
   )
-  configFiles = Map(
-    "git", ".gitignore",
-    "editor", ".editorconfig"
-  )
+  configFiles = Map()
 }

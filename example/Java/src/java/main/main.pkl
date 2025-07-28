@@ -1,0 +1,13 @@
+amends "../../../../../pkl/BuildConfig.pkl"
+
+builds = Map(
+  "default", new Build {
+    name = "default"
+    sources = Set("*.java")
+    language = new Java {
+      mainClass = "Main"
+      shade = true
+    }
+    output = "default"
+  }
+)

@@ -1,0 +1,13 @@
+amends "../../pkl/BuildConfig.pkl"
+
+builds = Map(
+  "main", new Build {
+    name = "main"
+    sources = Set("src/**/*.java")
+    language = new Java {
+      mainClass = "Main"
+      shade = true
+    }
+    output = "velux-demo"
+  }
+)

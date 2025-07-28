@@ -1,0 +1,49 @@
+amends "../../pkl/WorkspaceConfig.pkl"
+
+local commonScripts = Map(
+  "clean", new Script {
+    name = "clean"
+    command = "rm -rf build/ dist/ *.tmp src/*/build tests/build velux-out/"
+    description = "Clean all build artifacts"
+  },
+  "format", new Script {
+    name = "format"
+    command = "find src tests -name '*.c' -o -name '*.h' | xargs clang-format -i"
+    description = "Format all source code"
+  },
+  "test", new Script {
+    name = "test"
+    command = "DYLD_LIBRARY_PATH=../velux-out/shared ./velux-out/executable/test_runner"
+    description = "Run all tests"
+    workingDir = "."
+  },
+  "run", new Script {
+    name = "run"
+    command = "DYLD_LIBRARY_PATH=./velux-out/shared ./velux-out/executable/velux-app"
+    description = "Run the main application"
+    workingDir = "."
+  }
+)
+
+workspace = new Workspace {
+  name = "VeluxDemo"
+  version = "1.0.0"
+  scripts = commonScripts
+  projects = Map(
+    "build", new Project {
+      name = "build"
+      path = "."
+      type = "executable"
+      buildConfig = "**/*.pkl"
+    },
+    "app", new Project {
+      name = "app"
+      path = "src/java/main"
+      type = "executable"
+      dependencies = List("core")
+      buildConfig = "app.pkl"
+    }
+  )
+  environments = Map()
+  configFiles = Map()
+}

@@ -32,14 +32,55 @@ struct EnvironmentData {
 
 struct BuildConfigData {
     let builds: [String: BuildData]
+    let globalIncludePaths: [String]
+    let globalLibraries: [String]
 }
 
 struct BuildData {
     let name: String
     let sources: Set<String>
-    let buildType: String
+    let language: LanguageData
+    let dependencies: [String]
+    let output: String
+}
+
+protocol LanguageData {
+    var name: String { get }
+    var extensions: Set<String> { get }
+    var compilerFlags: [String] { get }
+}
+
+struct JavaLanguageData: LanguageData {
+    let name = "java"
+    let extensions: Set<String>
+    let compilerFlags: [String]
+    let libraries: [String]
+    let shade: Bool
+    let mainClass: String
+}
+
+struct CLanguageData: LanguageData {
+    let name = "c"
+    let extensions: Set<String>
+    let compilerFlags: [String]
     let libraries: [String]
     let includePaths: [String]
+    let buildType: String
     let extraFlags: [String]
-    let dependencies: [String]
+}
+
+struct CPPLanguageData: LanguageData {
+    let name = "cpp"
+    let extensions: Set<String>
+    let compilerFlags: [String]
+    let libraries: [String]
+    let includePaths: [String]
+    let buildType: String
+    let extraFlags: [String]
+}
+
+struct GenericLanguageData: LanguageData {
+    let name: String
+    let extensions: Set<String>
+    let compilerFlags: [String]
 }

@@ -92,21 +92,21 @@ struct BuildSystem {
                     }
                 }
 
-                try buildInDependencyOrder(allBuilds, strip: strip, globalBuildType: buildType)
+                try buildInDependencyOrder(allBuilds, strip: strip, globalBuildType: buildType, buildConfig: buildConfig)
             } else {
                 let fullPath = "\(project.path)/\(buildConfigPath)"
                 let projectBuildConfig = try await loadBuildConfig(from: fullPath)
 
                 for (_, build) in projectBuildConfig.builds {
                     try executeBuild(
-                        build, projectPath: project.path, strip: strip, globalBuildType: buildType)
+                        build, projectPath: project.path, strip: strip, globalBuildType: buildType, buildConfig: projectBuildConfig)
                 }
             }
         }
     }
 
     private func buildInDependencyOrder(
-        _ builds: [(BuildData, String)], strip: Bool = false, globalBuildType: String
+        _ builds: [(BuildData, String)], strip: Bool = false, globalBuildType: String, buildConfig: BuildConfigData
     ) throws {
         var buildMap: [String: (BuildData, String)] = [:]
         var builtTargets: Set<String> = []
@@ -114,8 +114,9 @@ struct BuildSystem {
         for (build, path) in builds {
             buildMap[build.name] = (build, path)
             if !strip {
+                let buildTypeInfo = getBuildTypeInfo(for: build.language)
                 pipelinePrint(
-                    "Found target \(Colors.cyan)\(build.name)\(Colors.reset) \(Colors.yellow)(\(build.buildType))\(Colors.reset)",
+                    "Found target \(Colors.cyan)\(build.name)\(Colors.reset) \(Colors.yellow)(\(buildTypeInfo))\(Colors.reset)",
                     category: "info", strip: strip)
             }
         }
@@ -136,19 +137,20 @@ struct BuildSystem {
                 try buildTarget(dependency)
             }
 
+            let buildTypeInfo = getBuildTypeInfo(for: build.language)
             pipelinePrint(
-                "Building \(Colors.cyan)\(targetName)\(Colors.reset) \(Colors.yellow)(\(build.buildType))\(Colors.reset)",
+                "Building \(Colors.cyan)\(targetName)\(Colors.reset) \(Colors.yellow)(\(buildTypeInfo))\(Colors.reset)",
                 category: "building", strip: strip)
             try executeBuild(
-                build, projectPath: path, strip: strip, globalBuildType: globalBuildType)
+                build, projectPath: path, strip: strip, globalBuildType: globalBuildType, buildConfig: buildConfig)
             builtTargets.insert(targetName)
         }
 
-        let sortedBuilds = builds.sorted { (build1, build2) in
-            let priority1 = getBuildPriority(build1.0.buildType)
-            let priority2 = getBuildPriority(build2.0.buildType)
+        let sortedBuilds = builds.sorted(by: { (build1, build2) in
+            let priority1 = getBuildPriority(for: build1.0.language)
+            let priority2 = getBuildPriority(for: build2.0.language)
             return priority1 < priority2
-        }
+        })
 
         for (build, _) in sortedBuilds {
             try buildTarget(build.name)
@@ -156,10 +158,132 @@ struct BuildSystem {
     }
 
     private func executeBuild(
-        _ build: BuildData, projectPath: String, strip: Bool = false, globalBuildType: String
+        _ build: BuildData, projectPath: String, strip: Bool = false, globalBuildType: String, buildConfig: BuildConfigData
+    ) throws {
+        switch build.language {
+        case let javaLang as JavaLanguageData:
+            try executeJavaBuild(build, language: javaLang, projectPath: projectPath, strip: strip, buildConfig: buildConfig)
+        case let cLang as CLanguageData:
+            try executeCBuild(build, language: cLang, projectPath: projectPath, strip: strip, globalBuildType: globalBuildType, buildConfig: buildConfig)
+        case let cppLang as CPPLanguageData:
+            try executeCPPBuild(build, language: cppLang, projectPath: projectPath, strip: strip, globalBuildType: globalBuildType, buildConfig: buildConfig)
+        default:
+            throw BuildError.unsupportedLanguage(build.language.name)
+        }
+    }
+
+    private func executeJavaBuild(
+        _ build: BuildData, language: JavaLanguageData, projectPath: String, strip: Bool = false, buildConfig: BuildConfigData
     ) throws {
         let currentDir = FileManager.default.currentDirectoryPath
-        let outputSubdir = getOutputSubdirectory(for: build.buildType)
+        let outputDir = "\(currentDir)/velux-out/java"
+        let classesDir = "\(outputDir)/classes"
+        let libDir = "\(outputDir)/lib"
+
+        let createDirProcess = Process()
+        createDirProcess.executableURL = URL(fileURLWithPath: "/bin/mkdir")
+        createDirProcess.arguments = ["-p", classesDir, libDir]
+        try createDirProcess.run()
+        createDirProcess.waitUntilExit()
+
+        var compileCommand = ["javac"]
+        compileCommand.append(contentsOf: language.compilerFlags)
+
+        if !language.libraries.isEmpty {
+            let classpath = language.libraries.joined(separator: ":")
+            compileCommand.append("-cp")
+            compileCommand.append(classpath)
+        }
+
+        compileCommand.append("-d")
+        compileCommand.append(classesDir)
+
+        for source in build.sources {
+            let expandedSources = try expandGlob(source, in: projectPath)
+            compileCommand.append(contentsOf: expandedSources)
+        }
+
+        let compileProcess = Process()
+        compileProcess.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        compileProcess.arguments = compileCommand
+        compileProcess.currentDirectoryURL = URL(fileURLWithPath: projectPath)
+
+        let pipe = Pipe()
+        compileProcess.standardOutput = pipe
+        compileProcess.standardError = pipe
+
+        try compileProcess.run()
+        compileProcess.waitUntilExit()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        if let output = String(data: data, encoding: .utf8), !output.isEmpty {
+            print(output)
+        }
+
+        if compileProcess.terminationStatus != 0 {
+            throw BuildError.buildFailed(build.name)
+        }
+
+        let jarName = "\(build.output).jar"
+        let jarPath = "\(outputDir)/\(jarName)"
+
+        var jarCommand = ["jar", "cf", jarPath, "-C", classesDir, "."]
+
+        if !language.mainClass.isEmpty {
+            let manifestPath = "\(outputDir)/MANIFEST.MF"
+            let manifestContent = """
+                Manifest-Version: 1.0
+                Main-Class: \(language.mainClass)
+
+                """
+
+            try manifestContent.write(toFile: manifestPath, atomically: true, encoding: .utf8)
+            jarCommand = ["jar", "cfm", jarPath, manifestPath, "-C", classesDir, "."]
+        }
+
+        if language.shade {
+            for library in language.libraries {
+                if library.hasSuffix(".jar") {
+                    let extractProcess = Process()
+                    extractProcess.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                    extractProcess.arguments = ["jar", "xf", library]
+                    extractProcess.currentDirectoryURL = URL(fileURLWithPath: classesDir)
+
+                    try extractProcess.run()
+                    extractProcess.waitUntilExit()
+                }
+            }
+        }
+
+        let jarProcess = Process()
+        jarProcess.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        jarProcess.arguments = jarCommand
+        jarProcess.currentDirectoryURL = URL(fileURLWithPath: projectPath)
+
+        let jarPipe = Pipe()
+        jarProcess.standardOutput = jarPipe
+        jarProcess.standardError = jarPipe
+
+        try jarProcess.run()
+        jarProcess.waitUntilExit()
+
+        let jarData = jarPipe.fileHandleForReading.readDataToEndOfFile()
+        if let jarOutput = String(data: jarData, encoding: .utf8), !jarOutput.isEmpty {
+            print(jarOutput)
+        }
+
+        if jarProcess.terminationStatus != 0 {
+            throw BuildError.buildFailed(build.name)
+        }
+
+        pipelinePrint("Java build completed: \(jarPath)", category: "success", strip: strip)
+    }
+
+    private func executeCBuild(
+        _ build: BuildData, language: CLanguageData, projectPath: String, strip: Bool = false, globalBuildType: String, buildConfig: BuildConfigData
+    ) throws {
+        let currentDir = FileManager.default.currentDirectoryPath
+        let outputSubdir = getOutputSubdirectory(for: language.buildType)
         let outputDir = "\(currentDir)/velux-out/\(outputSubdir)"
 
         let createDirProcess = Process()
@@ -169,16 +293,21 @@ struct BuildSystem {
         try createDirProcess.run()
         createDirProcess.waitUntilExit()
 
-        var compileCommand = ["gcc"]
+        var compileCommand = ["clang"]
         compileCommand.append(contentsOf: getCompilerFlags(for: globalBuildType))
-        compileCommand.append(contentsOf: build.extraFlags)
+        compileCommand.append(contentsOf: language.compilerFlags)
+        compileCommand.append(contentsOf: language.extraFlags)
 
         for source in build.sources {
             let expandedSources = try expandGlob(source, in: projectPath)
             compileCommand.append(contentsOf: expandedSources)
         }
 
-        for includePath in build.includePaths {
+        for includePath in language.includePaths {
+            compileCommand.append("-I\(includePath)")
+        }
+
+        for includePath in buildConfig.globalIncludePaths {
             compileCommand.append("-I\(includePath)")
         }
 
@@ -200,20 +329,117 @@ struct BuildSystem {
             }
         }
 
-        for library in build.libraries ?? [] {
+        for library in language.libraries {
             if library.hasPrefix("pkg:") {
                 let moduleName = String(library.dropFirst(4))
                 let (cflags, ldflags) = try runPkgConfig(moduleName)
-                compileCommand.append(contentsOf: cflags ?? [])
+                compileCommand.append(contentsOf: cflags)
                 compileCommand.append(contentsOf: ldflags)
             } else {
                 compileCommand.append("-l\(library)")
             }
         }
 
-        let outputExtension = getOutputExtension(for: build.buildType)
+        for library in buildConfig.globalLibraries {
+            compileCommand.append("-l\(library)")
+        }
+
+        let outputExtension = getOutputExtension(for: language.buildType)
         let outputName = getOutputName(
-            build.name, buildType: build.buildType, extension: outputExtension)
+            build.name, buildType: language.buildType, extension: outputExtension)
+        compileCommand.append("-o")
+        compileCommand.append("\(outputDir)/\(outputName)")
+
+        let compileProcess = Process()
+        compileProcess.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        compileProcess.arguments = compileCommand
+        compileProcess.currentDirectoryURL = URL(fileURLWithPath: projectPath)
+
+        let pipe = Pipe()
+        compileProcess.standardOutput = pipe
+        compileProcess.standardError = pipe
+
+        try compileProcess.run()
+        compileProcess.waitUntilExit()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        if let output = String(data: data, encoding: .utf8), !output.isEmpty {
+            print(output)
+        }
+
+        if compileProcess.terminationStatus != 0 {
+            throw BuildError.buildFailed(build.name)
+        }
+    }
+
+    private func executeCPPBuild(
+        _ build: BuildData, language: CPPLanguageData, projectPath: String, strip: Bool = false, globalBuildType: String, buildConfig: BuildConfigData
+    ) throws {
+        let currentDir = FileManager.default.currentDirectoryPath
+        let outputSubdir = getOutputSubdirectory(for: language.buildType)
+        let outputDir = "\(currentDir)/velux-out/\(outputSubdir)"
+
+        let createDirProcess = Process()
+        createDirProcess.executableURL = URL(fileURLWithPath: "/bin/mkdir")
+        createDirProcess.arguments = ["-p", outputDir]
+
+        try createDirProcess.run()
+        createDirProcess.waitUntilExit()
+
+        var compileCommand = ["clang++"]
+        compileCommand.append(contentsOf: getCompilerFlags(for: globalBuildType))
+        compileCommand.append(contentsOf: language.compilerFlags)
+        compileCommand.append(contentsOf: language.extraFlags)
+
+        for source in build.sources {
+            let expandedSources = try expandGlob(source, in: projectPath)
+            compileCommand.append(contentsOf: expandedSources)
+        }
+
+        for includePath in language.includePaths {
+            compileCommand.append("-I\(includePath)")
+        }
+
+        for includePath in buildConfig.globalIncludePaths {
+            compileCommand.append("-I\(includePath)")
+        }
+
+        for dependency in build.dependencies {
+            let sharedLib = "\(currentDir)/velux-out/shared/lib\(dependency).so"
+            let staticLib = "\(currentDir)/velux-out/static/lib\(dependency).a"
+
+            if FileManager.default.fileExists(atPath: sharedLib) {
+                compileCommand.append("-L\(currentDir)/velux-out/shared")
+                compileCommand.append("-l\(dependency)")
+                compileCommand.append("-Wl,-rpath,\(currentDir)/velux-out/shared")
+            } else if FileManager.default.fileExists(atPath: staticLib) {
+                compileCommand.append("-L\(currentDir)/velux-out/static")
+                compileCommand.append("-l\(dependency)")
+            } else {
+                pipelinePrint(
+                    "Dependency '\(dependency)' not found in velux-out", category: "warning",
+                    strip: strip)
+            }
+        }
+
+        for library in language.libraries {
+            if library.hasPrefix("pkg:") {
+                let moduleName = String(library.dropFirst(4))
+                let (cflags, ldflags) = try runPkgConfig(moduleName)
+                compileCommand.append(contentsOf: cflags)
+                compileCommand.append(contentsOf: ldflags)
+            } else {
+                compileCommand.append("-l\(library)")
+            }
+        }
+
+        for library in buildConfig.globalLibraries {
+            compileCommand.append("-l\(library)")
+        }
+
+        let outputExtension = getOutputExtension(for: language.buildType)
+        let outputName = getOutputName(
+            build.name, buildType: language.buildType, extension: outputExtension)
         compileCommand.append("-o")
         compileCommand.append("\(outputDir)/\(outputName)")
 
@@ -350,16 +576,48 @@ struct BuildSystem {
         }
     }
 
-    private func getBuildPriority(_ buildType: String) -> Int {
-        switch buildType.lowercased() {
-        case "shared":
-            return 1
-        case "static":
-            return 2
-        case "debug", "release", "test":
-            return 3
+    private func getBuildPriority(for language: LanguageData) -> Int {
+        switch language.name.lowercased() {
+        case "java":
+            return 0
         default:
-            return 4
+            if let cLang = language as? CLanguageData {
+                switch cLang.buildType.lowercased() {
+                case "shared":
+                    return 1
+                case "static":
+                    return 2
+                case "debug", "release", "test":
+                    return 3
+                default:
+                    return 4
+                }
+            } else if let cppLang = language as? CPPLanguageData {
+                switch cppLang.buildType.lowercased() {
+                case "shared":
+                    return 1
+                case "static":
+                    return 2
+                case "debug", "release", "test":
+                    return 3
+                default:
+                    return 4
+                }
+            }
+            return 5
+        }
+    }
+
+    private func getBuildTypeInfo(for language: LanguageData) -> String {
+        switch language {
+        case let javaLang as JavaLanguageData:
+            return "java" + (javaLang.shade ? " [shaded]" : "")
+        case let cLang as CLanguageData:
+            return cLang.buildType
+        case let cppLang as CPPLanguageData:
+            return cppLang.buildType
+        default:
+            return language.name
         }
     }
 
@@ -431,6 +689,7 @@ enum BuildError: Error, LocalizedError {
     case scriptExecutionFailed(String, Int32)
     case buildFailed(String)
     case pkgConfigFailed(String, String)
+    case unsupportedLanguage(String)
 
     var errorDescription: String? {
         switch self {
@@ -450,6 +709,8 @@ enum BuildError: Error, LocalizedError {
             return "Build '\(name)' failed"
         case .pkgConfigFailed(let moduleName, let reason):
             return "pkg-config failed for module '\(moduleName)': \(reason)"
+        case .unsupportedLanguage(let name):
+            return "Unsupported language: '\(name)'"
         }
     }
 }

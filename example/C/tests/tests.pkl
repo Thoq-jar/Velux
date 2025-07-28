@@ -1,0 +1,15 @@
+amends "../../../pkl/BuildConfig.pkl"
+
+builds = Map(
+  "tests", new Build {
+    name = "tests"
+    sources = Set("*.c")
+    language = new C {
+      includePaths = List("../src/core")
+      extraFlags = List()
+      buildType = "debug"
+    }
+    dependencies = List("core")
+    output = "test_runner"
+  }
+)

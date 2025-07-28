@@ -36,17 +36,29 @@ struct PklEnvironment: Decodable {
 
 struct PklBuildConfigRoot: Decodable {
     let builds: [String: PklBuild]
+    let globalIncludePaths: [String]?
+    let globalLibraries: [String]?
 }
 
 struct PklBuild: Decodable {
     let name: String
     let sources: [String]
-    let buildType: String
-    let libraries: [String]?
-    let includePaths: [String]?
-    let extraFlags: [String]?
+    let language: PklLanguage
     let dependencies: [String]?
     let output: String?
+}
+
+struct PklLanguage: Decodable {
+    let name: String?
+    let extensions: [String]?
+    let compilerFlags: [String]?
+    let libraries: [String]?
+    let includePaths: [String]?
+    let buildType: String?
+    let extraFlags: [String]?
+
+    let shade: Bool?
+    let mainClass: String?
 }
 
 extension PklWorkspace {
@@ -95,14 +107,57 @@ extension PklBuildConfigRoot {
             BuildData(
                 name: build.name,
                 sources: Set(build.sources),
-                buildType: build.buildType,
-                libraries: build.libraries ?? [],
-                includePaths: build.includePaths ?? [],
-                extraFlags: build.extraFlags ?? [],
-                dependencies: build.dependencies ?? []
+                language: build.language.toLanguageData(),
+                dependencies: build.dependencies ?? [],
+                output: build.output ?? build.name
             )
         }
 
-        return BuildConfigData(builds: convertedBuilds)
+        return BuildConfigData(
+            builds: convertedBuilds,
+            globalIncludePaths: globalIncludePaths ?? [],
+            globalLibraries: globalLibraries ?? []
+        )
+    }
+}
+
+extension PklLanguage {
+    func toLanguageData() -> LanguageData {
+        let languageName = name?.lowercased() ?? "unknown"
+
+        switch languageName {
+        case "java":
+            return JavaLanguageData(
+                extensions: Set(extensions ?? [".java"]),
+                compilerFlags: compilerFlags ?? [],
+                libraries: libraries ?? [],
+                shade: shade ?? false,
+                mainClass: mainClass ?? ""
+            )
+        case "c":
+            return CLanguageData(
+                extensions: Set(extensions ?? [".c", ".h"]),
+                compilerFlags: compilerFlags ?? ["-std=c99", "-Wall", "-Wextra"],
+                libraries: libraries ?? [],
+                includePaths: includePaths ?? [],
+                buildType: buildType ?? "debug",
+                extraFlags: extraFlags ?? []
+            )
+        case "cpp", "c++":
+            return CPPLanguageData(
+                extensions: Set(extensions ?? [".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".h"]),
+                compilerFlags: compilerFlags ?? ["-std=c++17", "-Wall", "-Wextra"],
+                libraries: libraries ?? [],
+                includePaths: includePaths ?? [],
+                buildType: buildType ?? "debug",
+                extraFlags: extraFlags ?? []
+            )
+        default:
+            return GenericLanguageData(
+                name: languageName,
+                extensions: Set(extensions ?? []),
+                compilerFlags: compilerFlags ?? []
+            )
+        }
     }
 }

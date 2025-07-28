@@ -2,7 +2,7 @@
 /.build
 /.vscode
 /Packages
-build/
+velux-out/
 DerivedData/
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
