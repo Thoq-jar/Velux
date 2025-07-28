@@ -87,12 +87,13 @@ extension Velux {
 
             prerun(strip: strip)
             let buildSystem = BuildSystem()
-            let workspaceData = try await buildSystem.loadWorkspace(from: workspace)
+            let utils = VeluxUtils()
+            let workspaceData = try await utils.loadWorkspace(from: workspace)
 
             if script {
-                try buildSystem.executeScript(target, in: workspaceData)
+                try utils.executeScript(target, in: workspaceData)
             } else {
-                let buildConfig = try await buildSystem.loadBuildConfig(from: "build.pkl")
+                let buildConfig = try await utils.loadBuildConfig(from: "build.pkl")
                 try await buildSystem.buildProject(
                     target, in: workspaceData, buildConfig: buildConfig, strip: strip,
                     buildType: resolvedBuildType)
@@ -117,10 +118,10 @@ extension Velux {
         var strip: Bool = false
 
         func run() async throws {
+            let utils = VeluxUtils()
             prerun(strip: strip)
-            let buildSystem = BuildSystem()
-            let workspaceData = try await buildSystem.loadWorkspace(from: workspace)
-            try buildSystem.executeScript(script, in: workspaceData)
+            let workspaceData = try await utils.loadWorkspace(from: workspace)
+            try utils.executeScript(script, in: workspaceData)
             postrun(strip: strip)
         }
     }
@@ -137,9 +138,9 @@ extension Velux {
         var strip: Bool = false
 
         func run() async throws {
+            let utils = VeluxUtils()
             prerun(strip: strip)
-            let buildSystem = BuildSystem()
-            let workspaceData = try await buildSystem.loadWorkspace(from: workspace)
+            let workspaceData = try await utils.loadWorkspace(from: workspace)
 
             if strip {
                 print("Workspace: \(workspaceData.name) v\(workspaceData.version)")
@@ -246,9 +247,9 @@ extension Velux {
         var strip: Bool = false
 
         func run() async throws {
+            let utils = VeluxUtils()
             prerun(strip: strip)
-            let buildSystem = BuildSystem()
-            let workspaceData = try await buildSystem.loadWorkspace(from: workspace)
+            let workspaceData = try await utils.loadWorkspace(from: workspace)
 
             if let project = workspaceData.projects[target] {
                 if strip {
