@@ -7,6 +7,7 @@
 
 std::vector<std::string> extractStringArray(const cJSON* jsonArray) {
     std::vector<std::string> result;
+
     if(!jsonArray || !cJSON_IsArray(jsonArray)) {
         return result;
     }
@@ -17,6 +18,7 @@ std::vector<std::string> extractStringArray(const cJSON* jsonArray) {
             result.emplace_back(item->valuestring);
         }
     }
+
     return result;
 }
 
@@ -46,16 +48,24 @@ ConfigParse::Config ConfigParse::parseConfig(const std::string& jsonString) {
         const cJSON* sources = cJSON_GetObjectItemCaseSensitive(json, "sources");
         const cJSON* include = cJSON_GetObjectItemCaseSensitive(json, "include");
         const cJSON* dependencies = cJSON_GetObjectItemCaseSensitive(json, "dependencies");
+        const cJSON* find_pkg = cJSON_GetObjectItemCaseSensitive(json, "find-pkg");
+        const std::string velux = getStringValue(json, "velux");
+        const std::string language = getStringValue(json, "language");
+        const std::string version = getStringValue(json, "version");
+        const std::string output = getStringValue(json, "output");
+        const std::string type = getStringValue(json, "type");
 
-        config.velux = getStringValue(json, "velux");
-        config.language = getStringValue(json, "language");
-        config.version = getStringValue(json, "version");
-        config.output = getStringValue(json, "output");
+        config.velux = velux;
+        config.language = language;
+        config.version = version;
+        config.output = output;
+        config.type = type;
         config.compilers = extractStringArray(compilers);
         config.flags = extractStringArray(flags);
         config.sources = extractStringArray(sources);
         config.include = extractStringArray(include);
         config.dependencies = extractStringArray(dependencies);
+        config.find_pkg = extractStringArray(find_pkg);
     } catch(const std::exception& ex) {
         Logger::error(ex.what(), "Parser");
         cJSON_Delete(json);

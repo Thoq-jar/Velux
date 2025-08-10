@@ -6,6 +6,13 @@
 class BuildSystem {
 public:
     static void build(const ConfigParse::Config& config);
+    static std::string executeCommand(const std::string& command);
+    static void addPkgConfigFlags(const ConfigParse::Config& config, std::string& build_cmd);
+    static void addDependencyLibraries(const ConfigParse::Config& config, std::string& build_cmd);
+
+private:
+    static void buildDependency(const std::string& dependencyPath);
+    static std::string getDependencyLibraryPath(const std::string& dependencyPath);
 };
 
 #endif // BUILD_SYSTEM_HPP

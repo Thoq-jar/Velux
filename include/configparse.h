@@ -9,11 +9,13 @@ public:
         std::string velux;
         std::string language;
         std::string version;
+        std::string type;
         std::string output;
         std::vector<std::string> compilers;
         std::vector<std::string> flags;
         std::vector<std::string> sources;
         std::vector<std::string> include;
+        std::vector<std::string> find_pkg;
         std::vector<std::string> dependencies;  // not implemented yet
     };
 
