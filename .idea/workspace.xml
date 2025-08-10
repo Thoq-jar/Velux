@@ -20,12 +20,14 @@
   <component name="CMakeSettings">
     <configurations>
       <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" />
+      <configuration PROFILE_NAME="MinSizeRel" ENABLED="true" CONFIG_NAME="MinSizeRel" />
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5257934b-46db-4ff7-b243-2c10fda6987d" name="Changes" comment="add newline to ninja build">
+    <list default="true" id="5257934b-46db-4ff7-b243-2c10fda6987d" name="Changes" comment="minify ninja">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/build_system.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/build_system.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sys/fs.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/sys/fs.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,7 +37,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:MinSizeRel" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -73,6 +75,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "CMake Application.velux.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.RadMigrateCodeStyle": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -89,6 +92,7 @@
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "CMakeSettings",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -116,7 +120,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1754801340983</updated>
-      <workItem from="1754801342294" duration="964000" />
+      <workItem from="1754801342294" duration="1863000" />
     </task>
     <task id="LOCAL-00001" summary="yes">
       <option name="closed" value="true" />
@@ -142,16 +146,30 @@
       <option name="project" value="LOCAL" />
       <updated>1754802007771</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="minify ninja">
+      <option name="closed" value="true" />
+      <created>1754802322111</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1754802322111</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="VCPKGProject">
+    <isAutomaticCheckingOnLaunch value="false" />
+    <isAutomaticFoundErrors value="true" />
+    <isAutomaticReloadCMake value="true" />
+  </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="yes" />
     <MESSAGE value="fixed random logs" />
     <MESSAGE value="add newline to ninja build" />
-    <option name="LAST_COMMIT_MESSAGE" value="add newline to ninja build" />
+    <MESSAGE value="minify ninja" />
+    <option name="LAST_COMMIT_MESSAGE" value="minify ninja" />
   </component>
 </project>
