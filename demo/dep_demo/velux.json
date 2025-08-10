@@ -1,0 +1,11 @@
+{
+  "velux": "1.0",
+  "language": "CXX",
+  "version": "23",
+  "type": "library",
+  "output": "libdep_demo.a",
+  "compilers": ["clang++"],
+  "flags": ["-Wall", "-Werror"],
+  "sources": ["lib.cpp"],
+  "include": ["."]
+}

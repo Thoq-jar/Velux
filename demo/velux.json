@@ -1,0 +1,13 @@
+{
+  "velux": "1.0",
+  "language": "CXX",
+  "version": "23",
+  "type": "executable",
+  "output": "velux-demo",
+  "compilers": ["clang++"],
+  "find-pkg": [],
+  "flags": ["-Wall", "-Werror"],
+  "sources": ["main.cpp"],
+  "include": ["dep_demo"],
+  "dependencies": ["dep_demo"]
+}
