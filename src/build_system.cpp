@@ -70,7 +70,7 @@ void BuildSystem::generateNinjaFile(const ConfigParse::Config& config, const std
     ninja_file << "\n";
 
     ninja_file << "ninja_required_version = 1.5\n";
-    ninja_file << "builddir = .velux-cache\n\n";
+    ninja_file << "builddir = .velux-cache\n";
 
     ninja_file << "cc = " << compiler << "\n";
 
@@ -94,16 +94,14 @@ void BuildSystem::generateNinjaFile(const ConfigParse::Config& config, const std
         ninja_file << "ldflags = " << ldflags << "\n";
     }
 
-    ninja_file << "\n";
-
     if(config.type == "library") {
         ninja_file << "rule cc\n";
         ninja_file << "  command = $cc $cflags -c $in -o $out\n";
         ninja_file << "  depfile = $out.d\n";
-        ninja_file << "  deps = gcc\n\n";
+        ninja_file << "  deps = gcc\n";
 
         ninja_file << "rule ar\n";
-        ninja_file << "  command = ar rcs $out $in\n\n";
+        ninja_file << "  command = ar rcs $out $in\n";
 
         std::vector<std::string> object_files;
         for(const auto& src : config.sources) {
@@ -114,28 +112,25 @@ void BuildSystem::generateNinjaFile(const ConfigParse::Config& config, const std
             object_files.push_back(obj_file);
             ninja_file << "build " << obj_file << ": cc " << src << "\n";
         }
-        ninja_file << "\n";
 
         std::string output_path = "velux-out/" + config.output;
         ninja_file << "build " << output_path << ": ar";
         for(const auto& obj : object_files) {
             ninja_file << " " << obj;
         }
-        ninja_file << "\n\n";
 
         ninja_file << "default " << output_path << "\n";
     } else {
         ninja_file << "rule cc\n";
         ninja_file << "  command = $cc $cflags -c $in -o $out\n";
         ninja_file << "  depfile = $out.d\n";
-        ninja_file << "  deps = gcc\n\n";
+        ninja_file << "  deps = gcc\n";
 
         ninja_file << "rule link\n";
         ninja_file << "  command = $cc -o $out $in";
         if(!ldflags.empty()) {
-            ninja_file << " $ldflags";
+            ninja_file << " $ldflags\n";
         }
-        ninja_file << "\n\n";
 
         std::vector<std::string> object_files;
         for(const auto& src : config.sources) {
@@ -145,14 +140,12 @@ void BuildSystem::generateNinjaFile(const ConfigParse::Config& config, const std
             object_files.push_back(obj_file);
             ninja_file << "build " << obj_file << ": cc " << src << "\n";
         }
-        ninja_file << "\n";
 
         std::string output_path = "velux-out/" + config.output;
         ninja_file << "build " << output_path << ": link";
         for(const auto& obj : object_files) {
             ninja_file << " " << obj;
         }
-        ninja_file << "\n\n";
 
         ninja_file << "default " << output_path << "\n";
     }
