@@ -1,3 +1,5 @@
+![Velux](.img/velux-logo.png)
+
 # Velux
 
 A high-performance, scalable build system for C(++)
