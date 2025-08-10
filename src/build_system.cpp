@@ -45,9 +45,15 @@ void BuildSystem::build(const ConfigParse::Config& config) {
     Logger::info("Generating build.ninja file...", "Builder");
     generateNinjaFile(config, compiler);
 
-    Logger::info("Building with ninja...", "Builder");
-    Sys::safe_system("ninja -t compdb rule1 rule2 > .velux-cache/compile_commands.json");
-    Sys::safe_system("ninja");
+    Logger::info("Building...", "Builder");
+    Sys::safe_system("ninja -t compdb rule1 rule2 > .velux-cache/compile_commands.json 2>/dev/null");
+    if(Sys::safe_system("ninja --quiet") != 0) {
+        Logger::error("Build failed. Running ninja again to show errors:", "Builder");
+        Sys::safe_system("ninja");
+        exit(1);
+    }
+
+    Logger::info("Build successfully!", "Builder");
 }
 
 void BuildSystem::generateNinjaFile(const ConfigParse::Config& config, const std::string& compiler) {

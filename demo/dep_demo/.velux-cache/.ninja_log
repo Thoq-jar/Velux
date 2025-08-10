@@ -1,3 +1,4 @@
 # ninja log v6
 0	123	1754801084739935120	.velux-cache/lib.o	7e685c5eab2e4c38
 124	141	1754801084863690585	velux-out/lib/libdep_demo.a	3a3799f0236c003b
+0	17	1754801529153364275	velux-out/libdep_demo.a	706da6be7e468ef9

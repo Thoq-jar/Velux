@@ -3,7 +3,7 @@
 std::string sanitize(const std::string& command) {
     std::string sanitized;
     for(const char c : command) {
-        if(strchr("&;`'\"|*?~<>^()[]{}$\\\n-", c)) {
+        if(strchr("&;`'\"|*?~^()[]{}$\\\n-", c)) {
             sanitized += '\\';
         }
         sanitized += c;
