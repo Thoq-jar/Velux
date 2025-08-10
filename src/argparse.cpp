@@ -28,26 +28,31 @@ Option ArgParse::parse(const int count, const char* args[]) {
         .command = ""
     };
 
-    for (int i = 1; i < count; ++i) {
+    for(int i = 1; i < count; ++i) {
         std::string arg = args[i];
 
-        if (auto it = cli_flags.find(arg); it != cli_flags.end()) {
-            if (arg == "--config" || arg == "-c") {
-                if (i + 1 < count) {
-                    it->second(option, args[++i]);
-                } else {
-                    Logger::error(arg + " requires a value!", "Main");
-                    exit(1);
-                }
-            } else {
-                it->second(option, "");
-            }
-        } else if (arg[0] != '-') {
+        if(arg[0] != '-') {
             option.command = arg;
-        } else {
+            continue;
+        }
+
+        auto it = cli_flags.find(arg);
+        if(it == cli_flags.end()) {
             Logger::error("Unknown Option: " + arg, "Main");
             exit(1);
         }
+
+        if(arg != "--config" && arg != "-c") {
+            it->second(option, "");
+            continue;
+        }
+
+        if(i + 1 >= count) {
+            Logger::error(arg + " requires a value!", "Main");
+            exit(1);
+        }
+
+        it->second(option, args[++i]);
     }
 
     return option;

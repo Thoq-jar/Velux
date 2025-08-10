@@ -41,24 +41,20 @@ ConfigParse::Config ConfigParse::parseConfig(const std::string& jsonString) {
     }
 
     try {
+        const cJSON* compilers = cJSON_GetObjectItemCaseSensitive(json, "compilers");
+        const cJSON* flags = cJSON_GetObjectItemCaseSensitive(json, "flags");
+        const cJSON* sources = cJSON_GetObjectItemCaseSensitive(json, "sources");
+        const cJSON* include = cJSON_GetObjectItemCaseSensitive(json, "include");
+        const cJSON* dependencies = cJSON_GetObjectItemCaseSensitive(json, "dependencies");
+
         config.velux = getStringValue(json, "velux");
         config.language = getStringValue(json, "language");
         config.version = getStringValue(json, "version");
         config.output = getStringValue(json, "output");
-
-        const cJSON* compilers = cJSON_GetObjectItemCaseSensitive(json, "compilers");
         config.compilers = extractStringArray(compilers);
-
-        const cJSON* flags = cJSON_GetObjectItemCaseSensitive(json, "flags");
         config.flags = extractStringArray(flags);
-
-        const cJSON* sources = cJSON_GetObjectItemCaseSensitive(json, "sources");
         config.sources = extractStringArray(sources);
-
-        const cJSON* include = cJSON_GetObjectItemCaseSensitive(json, "include");
         config.include = extractStringArray(include);
-
-        const cJSON* dependencies = cJSON_GetObjectItemCaseSensitive(json, "dependencies");
         config.dependencies = extractStringArray(dependencies);
     } catch(const std::exception& ex) {
         Logger::error(ex.what(), "Parser");

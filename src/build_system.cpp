@@ -11,8 +11,10 @@ void BuildSystem::build(const ConfigParse::Config& config) {
     const std::vector<std::string> flags = config.flags;
     const std::string language = config.language;
 
-    Logger::info("Finding Compiler...", "Builder");
+    std::string build_cmd;
     std::string compiler;
+
+    Logger::info("Finding Compiler...", "Builder");
     for(const std::string& c : compilers) {
         if(Sys::safe_system(c, true)) {
             compiler = c;
@@ -26,7 +28,6 @@ void BuildSystem::build(const ConfigParse::Config& config) {
     }
 
     Logger::info("Configuring " + compiler + "...", "Builder");
-    std::string build_cmd;
     build_cmd += compiler + " ";
     build_cmd += "-o " + target + " ";
     build_cmd += config.language == "CXX" ? "-std=c++" + config.version + " " : "-std=c" + config.version + " ";
