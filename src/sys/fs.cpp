@@ -13,9 +13,8 @@ std::string Sys::read_to_string(const std::filesystem::path& file_path) {
 
     std::ifstream file(file_path, std::ios::binary);
 
-    if(!file.is_open()) {
+    if(!file.is_open())
         throw std::runtime_error("Failed to open file: " + file_path.string());
-    }
 
     file.seekg(0, std::ios::end);
     const std::size_t size = file.tellg();
@@ -24,9 +23,8 @@ std::string Sys::read_to_string(const std::filesystem::path& file_path) {
     std::string content(size, '\0');
     file.read(content.data(), static_cast<std::streamsize>(size));
 
-    if(file.bad()) {
+    if(file.bad())
         throw std::runtime_error("Error reading file: " + file_path.string());
-    }
 
     return content;
 }

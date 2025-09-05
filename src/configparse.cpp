@@ -8,24 +8,22 @@
 std::vector<std::string> extractStringArray(const cJSON* jsonArray) {
     std::vector<std::string> result;
 
-    if(!jsonArray || !cJSON_IsArray(jsonArray)) {
+    if(!jsonArray || !cJSON_IsArray(jsonArray))
         return result;
-    }
 
     const cJSON* item = nullptr;
     cJSON_ArrayForEach(item, jsonArray) {
-        if(cJSON_IsString(item) && item->valuestring) {
+        if(cJSON_IsString(item) && item->valuestring)
             result.emplace_back(item->valuestring);
-        }
     }
 
     return result;
 }
 
 std::string getStringValue(const cJSON* json, const char* key) {
-    if(const cJSON* item = cJSON_GetObjectItemCaseSensitive(json, key); cJSON_IsString(item) && item->valuestring) {
+    if(const cJSON* item = cJSON_GetObjectItemCaseSensitive(json, key); cJSON_IsString(item) && item->valuestring)
         return {item->valuestring};
-    }
+
     return "";
 }
 
@@ -36,9 +34,10 @@ ConfigParse::Config ConfigParse::parseConfig(const std::string& jsonString) {
     if(!json) {
         const char* error_ptr = cJSON_GetErrorPtr();
         std::string error_msg = "JSON Parse Error";
-        if(error_ptr) {
+
+        if(error_ptr)
             error_msg += ": " + std::string(error_ptr);
-        }
+
         throw std::runtime_error(error_msg);
     }
 
@@ -78,9 +77,8 @@ ConfigParse::Config ConfigParse::parseConfig(const std::string& jsonString) {
 
 ConfigParse::Config ConfigParse::parseConfigFromFile(const std::string& filename) {
     FILE* file = fopen(filename.c_str(), "r");
-    if(!file) {
+    if(!file)
         throw std::runtime_error("Could not open config file: " + filename);
-    }
 
     fseek(file, 0, SEEK_END);
     const long fileSize = ftell(file);
@@ -90,9 +88,8 @@ ConfigParse::Config ConfigParse::parseConfigFromFile(const std::string& filename
     const size_t bytesRead = fread(&content[0], 1, fileSize, file);
     fclose(file);
 
-    if(bytesRead != static_cast<size_t>(fileSize)) {
+    if(bytesRead != static_cast<size_t>(fileSize))
         throw std::runtime_error("Error reading config file: " + filename);
-    }
 
     return parseConfig(content);
 }
